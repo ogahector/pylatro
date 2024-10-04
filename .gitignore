@@ -1,0 +1,5 @@
+/Lib
+/Scripts
+/Include
+.exe
+pyvenv.cfg
