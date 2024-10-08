@@ -1,5 +1,6 @@
 /Lib
 /Scripts
 /Include
+__pycache__
 .exe
 pyvenv.cfg
