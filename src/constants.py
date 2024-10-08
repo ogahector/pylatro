@@ -1,5 +1,15 @@
 from enum import Enum
 
+BASE_DECK_SIZE = 52
+PLAYABLE_HAND_SIZE = 5
+HAND_SIZE = 8
+
+class Suit(Enum):
+    SPADE = 0
+    HEART = 1
+    CLUB = 2
+    DIAMON = 3
+
 class BaseChips(Enum):
     ONE = 1
     TWO = 2
@@ -17,10 +27,20 @@ class BaseChips(Enum):
     ACE = 11
 
 
-BASE_DECK_SIZE = 52
-PLAYED_HAND_SIZE = 5
-HAND_SIZE = 8
-SUITS = ('h', 'c', 'd', 's')
-BASE_CHIP_MAPPING = {'2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, '10': 10, 'j': 10, 'q': 10, 'k': 10, 'a': 11}
-RANK_ORDER_MAPPING = {'2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, '10': 10, 'j': 11, 'q': 12, 'k': 13, 'a': (14,1)}
-RANKS = tuple(BASE_CHIP_MAPPING.keys())
+class RankOrder(Enum):
+    ONE = 1
+    TWO = 2
+    THREE = 3
+    FOUR = 4
+    FIVE = 5
+    SIX = 6
+    SEVEN = 7
+    EIGHT = 8
+    NINE = 9
+    TEN = 10
+    JACK = 11
+    QUEEN = 12
+    KING = 13
+    ACE = 14
+
+
