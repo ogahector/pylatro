@@ -8,10 +8,10 @@ class Suit(Enum):
     SPADE = 0
     HEART = 1
     CLUB = 2
-    DIAMON = 3
+    DIAMOND = 3
 
 class BaseChips(Enum):
-    ONE = 1
+    #ONE = 1
     TWO = 2
     THREE = 3
     FOUR = 4
@@ -28,7 +28,7 @@ class BaseChips(Enum):
 
 
 class RankOrder(Enum):
-    ONE = 1
+    #ONE = 1
     TWO = 2
     THREE = 3
     FOUR = 4
@@ -44,3 +44,14 @@ class RankOrder(Enum):
     ACE = 14
 
 
+class HandType(Enum):
+    HIGH_CARD = 1
+    PAIR = 2
+    TWO_PAIR = 3
+    THREE_OAK = 4
+    STRAIGHT = 5
+    FLUSH = 6
+    FULL_HOUSE = 7
+    FOUR_OAK = 8
+    STRAIGHT_FLUSH = 9
+    ROYAL_FLUSH = 10

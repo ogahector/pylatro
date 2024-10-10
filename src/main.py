@@ -1,19 +1,20 @@
-from collections import namedtuple
+from random import sample
+from typing import NamedTuple
 from constants import *
 
 
 class Card:
-    def __init__(self, suit:str, rank:str, enhancement=None, edition=None) -> None:
-        self.suit = suit
-        self.rank = rank
-        self.base_chips = BASE_CHIP_MAPPING[rank]
+    def __init__(self, suit:Suit, rank:RankOrder, enhancement=None, edition=None) -> None:
+        self.suit:Suit = suit
+        self.rank:RankOrder = rank
+        self.base_chips:BaseChips = BaseChips[rank.name]
         self.base_mult = 0
 
-    def score_card(self):
+    def score_card(self): # review scoring mechanism
         return self.base_chips, self.base_mult
     
     def __repr__(self) -> str:
-        return f'{self.rank} of {self.suit}'
+        return f'{self.rank.name} of {self.suit.name}'
 
 class Game:
     def __init__(self) -> None:
@@ -32,29 +33,37 @@ class Game:
         self.deck = Deck()
 
     def draw_hand(self) -> None:
-        randindexes = np.random.randint(low=0, high=self.deck.get_deck_size(), size=HAND_SIZE)
-        for i in randindexes:
-            self.hand.add(self.deck.cards_left[i])
-        for i in self.hand.cards:
-            self.deck.remove(i)
+        sampled_cards = sample(self.deck.drawable_cards, HAND_SIZE)
+        self.hand.add(sampled_cards)
+        self.deck.remove(sampled_cards)
 
 class Hand():
     def __init__(self, size:int) -> None:
         self.cards = []
         self.selected = []
-        self.size = size
         self.scorer = HandScorer()
 
-    def add(self, card:Card):
-        if len(self.cards) < self.size:
+    def add(self, card:list[Card] | Card):
+        if isinstance(card, list):
+            if len(card) > HAND_SIZE:
+                raise Exception('Added Too Many Cards to Hand!')
+            else:
+                for i in card:
+                    self.add(i)
+        elif len(self.cards) < HAND_SIZE:
             self.cards.append(card)
-        else: raise Exception('Could not add card to Hand: Hand already full!')
+        else: 
+            raise Exception('Could not add card to Hand: Hand already full!')
 
-    def remove(self, card) -> None:
-        self.cards.remove(card)
+    def remove(self, card:list[Card] | Card) -> None:
+        if isinstance(card, list):
+            for i in card:
+                self.remove(i)
+        else: 
+            self.cards.remove(card)
     
     def select_cards(self, indexes:int|list[int]) -> None:
-        if len(indexes) <= PLAYED_HAND_SIZE or isinstance(indexes, int):
+        if len(indexes) <= PLAYABLE_HAND_SIZE or isinstance(indexes, int):
             for i in indexes: 
                 self.selected.append(self.cards[i])
 
@@ -62,12 +71,11 @@ class Hand():
         self.selected = []
 
     def play_selected(self) -> None:
-        if len(self.selected) > PLAYED_HAND_SIZE: 
+        if len(self.selected) > PLAYABLE_HAND_SIZE: 
             raise Exception('Too Many Cards Selected!')
         self.scorer.add(self.selected)
-        #print(f'Hand Score: {self.scorer.score}')
-        for card in self.selected:
-            self.remove(card)
+
+        self.remove(self.selected)
         self.selected = []
 
     def print_hand(self) -> None:
@@ -83,17 +91,22 @@ class Hand():
 class HandScorer:
     def __init__(self) -> None:
         self.cards = []
-        self.card_info = namedtuple('CardInfo', ['ranks', 'suits'])
+        self.rank_info = {}
+        self.suit_info = {}
         self.score = 0,0
 
     def add(self, added_cards:list[Card] | Card) -> None:
-        if isinstance(added_cards, list) and len(added_cards) > PLAYED_HAND_SIZE: 
-            raise Exception('Too many cards Scored!')
-        for card in added_cards:
+        if isinstance(added_cards, list):
+            if len(added_cards) > PLAYABLE_HAND_SIZE: 
+                raise Exception('Too many cards Scored!')
+            for card in added_cards:
+                self.cards.append(card)
+                #print(f"Appended {card} to HandScorer's cards")
+        else:
             self.cards.append(card)
-            print(f'Appended {card} to HandScorer"s cards')
+            #print(f"Appended {card} to HandScorer's cards")
 
-    def get_hand_info(self, write_card_info:bool=True) -> tuple[dict, dict]:
+    def get_hand_info(self, write_card_info:bool=True) -> dict[dict, dict]:
         if self.cards:
             ranks_seen = {}
             suits_seen = {}
@@ -104,36 +117,39 @@ class HandScorer:
 
                 if card.suit in suits_seen:
                     suits_seen[card.suit] += 1
-                else: ranks_seen[card.rank]
-            if write_card_info: self.card_info = self.card_info(ranks=ranks_seen, suits=suits_seen)
+                else: suits_seen[card.suit] = 1
+            if write_card_info: 
+                self.rank_info = ranks_seen
+                self.suit_info = suits_seen
             return ranks_seen, suits_seen
         else: 
             raise Exception('Cannot get_hand_info! Play some cards first!')
 
-    def get_hand_type(self) -> str:
-        self.get_hand_info()
+    def get_hand_type(self) -> HandType:
+        self.get_hand_info(write_card_info=True)
         if self.cards:
-            if self.is_royal_flush(): return 'rf'
-            elif self.is_straight_flush(): return 'sf'
-            elif self.is_4oak(): return '4oak'
-            elif self.is_full_house(): return 'fh'
-            elif self.is_flush(): return 'f'
-            elif self.is_straight(): return 's'
-            elif self.is_3oak(): return '3oak'
-            elif self.is_2pair(): return '2p'
-            elif self.is_pair(): return 'p'
-            else: return 'hc'
-        else: return 'No Hand Played'
+            if self.is_royal_flush(): return HandType.ROYAL_FLUSH
+            elif self.is_straight_flush(): return HandType.STRAIGHT_FLUSH
+            elif self.is_4oak(): return HandType.FOUR_OAK
+            elif self.is_full_house(): return HandType.FULL_HOUSE
+            elif self.is_flush(): return HandType.FLUSH
+            elif self.is_straight(): return HandType.STRAIGHT
+            elif self.is_3oak(): return HandType.THREE_OAK
+            elif self.is_two_pair(): return HandType.TWO_PAIR
+            elif self.is_pair(): return HandType.PAIR
+            else: return HandType.HIGH_CARD
+        else: 
+            return 'No Hand Played'
 
     def is_high_card(self) -> bool:
         return bool(self.cards)
 
     def is_pair(self) -> bool:
-        return 2 in self.card_info.ranks.values()
+        return 2 in self.rank_info.values()
 
-    def is_2pair(self) -> bool:
-        rank_info = self.card_info.ranks
-        first_pair: bool = self.is_pair(self)
+    def is_two_pair(self) -> bool:
+        rank_info = self.rank_info
+        first_pair: bool = self.is_pair()
         if not first_pair: return False
         for key, val in rank_info.items():
             if val == 2: 
@@ -143,26 +159,26 @@ class HandScorer:
 
 
     def is_3oak(self) -> bool:
-        return 3 in self.card_info.ranks.values()
+        return 3 in self.rank_info.values()
 
     def is_straight(self) -> bool:
-        rank_info = list(self.card_info.ranks.keys())
-        rank_order = [RANK_ORDER_MAPPING[rank] for rank in rank_info]
+        rank_info = self.rank_info.keys()
+        rank_order = [RankOrder[rank.name].value for rank in rank_info]
+        return sorted(rank_order) == list(range(min(rank_order), max(rank_order)))
         rank_order.sort()
-        for i in rank_order:
+        for i in range(len(rank_order)):
             if rank_order[i+1] != rank_order[i] + 1: 
                 return False
         return True
 
     def is_flush(self) -> bool:
-        return 5 in self.card_info.suits.values()
+        return 5 in self.suit_info.values()
 
     def is_full_house(self) -> bool:
-        rank_info = self.card_info.ranks
-        return 2 in rank_info.values() and 3 in rank_info.values()
+        return 2 in self.rank_info.values() and 3 in self.rank_info.values()
 
     def is_4oak(self) -> bool:
-        return 4 in self.card_info.ranks.values()
+        return 4 in self.rank_info.values()
 
     def is_straight_flush(self) -> bool:
         return self.is_flush() and self.is_straight()
@@ -171,20 +187,21 @@ class HandScorer:
         ...
 
     
-    
-
 
 class Deck(Card):
     def __init__(self) -> None:
-        self.cards_left = [Card(suit=suit, rank=rank) for suit in SUITS for rank in RANKS]
-        self.full_cards = self.cards_left
+        self.drawable_cards = [Card(suit=suit, rank=rank) for suit in Suit for rank in RankOrder]
+        self.full_cards = self.drawable_cards
 
     def get_deck_size(self) -> int:
         return len(self.full_cards)
     
-    def remove(self, card:Card=None, index:int=None) -> None:
-        if isinstance(card, Card): self.cards_left.remove(card)
-        else: self.cards_left.pop(index)
+    def remove(self, card:list[Card] | Card) -> None:
+        if isinstance(card, list):
+            for i in card:
+                self.remove(i)
+        else:
+            self.drawable_cards.remove(card)
 
     def __len__(self) -> str:
         return len(self.full_cards)
@@ -197,9 +214,18 @@ def main() -> None:
     gameinstance.hand.print_hand()
     gameinstance.hand.select_cards([i for i in range(5)])
     gameinstance.hand.play_selected()
-    print(gameinstance.hand.selected)
+    print(gameinstance.hand.scorer.cards)
 
-    #print(gameinstance.hand.scorer.get_hand_info())
+    print(gameinstance.hand.scorer.get_hand_info())
+    print()
+    print(gameinstance.hand.scorer.is_high_card())
+    print(gameinstance.hand.scorer.is_pair())
+    print(gameinstance.hand.scorer.is_two_pair())
+    print(gameinstance.hand.scorer.is_3oak())
+    print(gameinstance.hand.scorer.is_straight())
+    print(gameinstance.hand.scorer.is_flush())
+    print(gameinstance.hand.scorer.is_full_house())
+    
     print(len(gameinstance.deck))
 
 
