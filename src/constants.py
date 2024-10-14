@@ -55,3 +55,40 @@ class HandType(Enum):
     FOUR_OAK = 8
     STRAIGHT_FLUSH = 9
     ROYAL_FLUSH = 10
+
+class Score:
+    def __init__(self, chips:float=0, mult:float=0) -> None:
+        self.chips = chips
+        self.mult = mult
+
+    def apply_chips(self, func:callable) -> None:
+        self.chips = func(self.chips)
+
+    def apply_mult(self, func:callable) -> None:
+        self.mult = func(self.mult)
+
+    def __add__(self, value):
+        return Score(self.chips + value.chips, self.mult + value.mult)
+
+    def __repr__(self) -> str:
+        return f"Chips: {self.chips} | Mult: {self.mult}"
+
+
+class PlanetScore(Enum):
+    HIGH_CARD = Score([1, 5])
+    PAIR = 10, 2
+    TWO_PAIR = 20, 2
+    THREE_OAK = 30, 2
+    STRAIGHT = 5
+    FLUSH = 6
+    FULL_HOUSE = 7
+    FOUR_OAK = 8
+    STRAIGHT_FLUSH = 9
+    ROYAL_FLUSH = 10
+
+
+def main() -> None:
+    print(PlanetScore.HIGH_CARD.value)
+
+if __name__ == '__main__':
+    main()

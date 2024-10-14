@@ -94,6 +94,7 @@ class HandScorer:
         self.rank_info = {}
         self.suit_info = {}
         self.score = 0,0
+        self.hand_type: HandType = None
 
     def add(self, added_cards:list[Card] | Card) -> None:
         if isinstance(added_cards, list):
@@ -103,7 +104,7 @@ class HandScorer:
                 self.cards.append(card)
                 #print(f"Appended {card} to HandScorer's cards")
         else:
-            self.cards.append(card)
+            self.cards.append(added_cards)
             #print(f"Appended {card} to HandScorer's cards")
 
     def get_hand_info(self, write_card_info:bool=True) -> dict[dict, dict]:
@@ -162,11 +163,17 @@ class HandScorer:
         return 3 in self.rank_info.values()
 
     def is_straight(self) -> bool:
-        rank_info = self.rank_info.keys()
-        rank_order = [RankOrder[rank.name].value for rank in rank_info]
-        return sorted(rank_order) == list(range(min(rank_order), max(rank_order)))
+        if len(self.cards) < 5: 
+            return False
+        rank_order = [rank.value for rank in self.rank_info.keys()]
+        print(f'rank_order = {rank_order}')
         rank_order.sort()
-        for i in range(len(rank_order)):
+        # check for ace-based straight:
+        if RankOrder.ACE.value in rank_order and RankOrder.TWO.value in rank_order:
+            for i in range(2, 6):
+                if i not in rank_order: return False
+            return True
+        for i in range(len(rank_order) - 1):
             if rank_order[i+1] != rank_order[i] + 1: 
                 return False
         return True
@@ -184,8 +191,13 @@ class HandScorer:
         return self.is_flush() and self.is_straight()
 
     def is_royal_flush(self) -> bool:
-        ...
+        royal = self.rank_info.keys() == [Card(suit=self.cards[0].suit, rank=rank) 
+                                        for rank in RankOrder if rank.value >= RankOrder.TEN.value]
+        return self.is_straight_flush() and royal
 
+
+    def score(self) -> tuple:
+        pass
     
 
 class Deck(Card):
@@ -215,18 +227,18 @@ def main() -> None:
     gameinstance.hand.select_cards([i for i in range(5)])
     gameinstance.hand.play_selected()
     print(gameinstance.hand.scorer.cards)
-
-    print(gameinstance.hand.scorer.get_hand_info())
-    print()
-    print(gameinstance.hand.scorer.is_high_card())
-    print(gameinstance.hand.scorer.is_pair())
-    print(gameinstance.hand.scorer.is_two_pair())
-    print(gameinstance.hand.scorer.is_3oak())
-    print(gameinstance.hand.scorer.is_straight())
-    print(gameinstance.hand.scorer.is_flush())
-    print(gameinstance.hand.scorer.is_full_house())
     
     print(len(gameinstance.deck))
+
+
+    myscorer = HandScorer()
+    myscorer.add([Card(suit=Suit.CLUB, rank=rank) for rank in RankOrder if rank.value in range(RankOrder.TWO.value, RankOrder.FIVE.value+1)])
+    myscorer.add(Card(suit=Suit.HEART, rank=RankOrder.ACE))
+    myscorer.get_hand_info()
+    print(myscorer.cards)
+    print(myscorer.is_flush())
+    print(myscorer.is_straight())
+    print(myscorer.get_hand_type())
 
 
 
