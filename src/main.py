@@ -1,43 +1,69 @@
-from random import sample
+from random import sample, shuffle
 from typing import NamedTuple
 from constants import *
 
 
 class Card:
-    def __init__(self, suit:Suit, rank:RankOrder, enhancement=None, edition=None) -> None:
+    def __init__(self, suit:Suit, rank:RankOrder, game=None, enhancement=None, edition=None) -> None:
         self.suit:Suit = suit
         self.rank:RankOrder = rank
+        self.game:Game = game
+        self.enhancement = enhancement
+        self.edition = edition
         self.base_chips:BaseChips = BaseChips[rank.name]
         self.base_mult = 0
 
-    def score_card(self): # review scoring mechanism
-        return self.base_chips, self.base_mult
+    def score(self) -> None:
+        self.game.score.add_chips(self.base_chips.value)
+        self.game.score.apply_func(lambda x:x) # enchancement
+        self.game.score.apply_func(lambda x:x) # edition
     
     def __repr__(self) -> str:
         return f'{self.rank.name} of {self.suit.name}'
 
 class Game:
     def __init__(self) -> None:
-        self.deck = Deck()
-        self.score = 0
+        self.deck = Deck(self)
+        shuffle(self.deck.drawable_cards)
+        self.deck.full_cards = self.deck.drawable_cards
+        self.score = Score(0, 0)
         self.money = 0
         self.hand = Hand(HAND_SIZE)
+        self.jokers:list[Joker] = []
 
     def reset_game(self) -> None:
-        self.deck = Deck()
-        self.score = 0
-        self.money = 0
-        self.hand = []
+        self.__init__()
 
     def reset_deck(self) -> None:
         self.deck = Deck()
 
     def draw_hand(self) -> None:
-        sampled_cards = sample(self.deck.drawable_cards, HAND_SIZE)
+        sampled_cards = self.deck.drawable_cards[:HAND_SIZE - len(self.hand.cards)]
         self.hand.add(sampled_cards)
         self.deck.remove(sampled_cards)
 
-class Hand():
+    def play_hand(self) -> float:
+        self.hand.play_selected()
+        hand_type = self.hand.scorer.get_hand_type()
+        self.score = PlanetScore[hand_type.name].value
+
+        played_card_score_queue = []
+        played_card_score_queue = self.hand.scorer.cards
+        for card in played_card_score_queue:
+            card.score()
+
+        card_in_hand_score_queue = []
+        for card in card_in_hand_score_queue:
+            card.score()
+
+        for joker in self.jokers:
+            joker.ability()
+        print(f'Your Hand Was: {hand_type.name}')
+        print(f'Your Score Was: {self.score.chips*self.score.mult}')
+        return self.score.chips * self.score.mult
+
+
+class Hand:
     def __init__(self, size:int) -> None:
         self.cards = []
         self.selected = []
@@ -78,6 +104,15 @@ class Hand():
         self.remove(self.selected)
         self.selected = []
 
+    def sort_ranks(self) -> None:
+        self.cards.sort(key=lambda card:card.rank.value)
+
+    def sort_suits(self) -> None:
+        sorted_suits = [[card for card in self.cards if card.suit == suit] for suit in Suit]
+        for i in sorted_suits:
+            i.sort(key=lambda card: card.rank.value)
+        self.cards = [card for sorted_suit in sorted_suits for card in sorted_suit]
+
     def print_hand(self) -> None:
         print([card for card in self.cards])
 
@@ -93,7 +128,6 @@ class HandScorer:
         self.cards = []
         self.rank_info = {}
         self.suit_info = {}
-        self.score = 0,0
         self.hand_type: HandType = None
 
     def add(self, added_cards:list[Card] | Card) -> None:
@@ -106,6 +140,15 @@ class HandScorer:
         else:
             self.cards.append(added_cards)
             #print(f"Appended {card} to HandScorer's cards")
+
+    def sort_ranks(self) -> None:
+        self.cards.sort(key=lambda card:card.rank.value)
+
+    def sort_suits(self) -> None:
+        sorted_suits = [[card for card in self.cards if card.suit == suit] for suit in Suit]
+        for i in sorted_suits:
+            i.sort(key=lambda card: card.rank.value)
+        self.cards = [card for sorted_suit in sorted_suits for card in sorted_suit]
 
     def get_hand_info(self, write_card_info:bool=True) -> dict[dict, dict]:
         if self.cards:
@@ -166,7 +209,6 @@ class HandScorer:
         if len(self.cards) < 5: 
             return False
         rank_order = [rank.value for rank in self.rank_info.keys()]
-        print(f'rank_order = {rank_order}')
         rank_order.sort()
         # check for ace-based straight:
         if RankOrder.ACE.value in rank_order and RankOrder.TWO.value in rank_order:
@@ -194,15 +236,12 @@ class HandScorer:
         royal = self.rank_info.keys() == [Card(suit=self.cards[0].suit, rank=rank) 
                                         for rank in RankOrder if rank.value >= RankOrder.TEN.value]
         return self.is_straight_flush() and royal
-
-
-    def score(self) -> tuple:
-        pass
     
 
 class Deck(Card):
-    def __init__(self) -> None:
-        self.drawable_cards = [Card(suit=suit, rank=rank) for suit in Suit for rank in RankOrder]
+    def __init__(self, game:Game) -> None:
+        self.game = game
+        self.drawable_cards = [Card(suit=suit, rank=rank, game=game) for suit in Suit for rank in RankOrder]
         self.full_cards = self.drawable_cards
 
     def get_deck_size(self) -> int:
@@ -215,30 +254,27 @@ class Deck(Card):
         else:
             self.drawable_cards.remove(card)
 
+    def add(self, card:Card) -> None:
+        self.full_cards.append(card)
+        self.drawable_cards.append(card)
+
+    def delete_card(self, card:Card) -> None:
+        self.drawable_cards.remove(card)
+        self.full_cards.remove(card)
+
     def __len__(self) -> str:
         return len(self.full_cards)
 
 
 def main() -> None:
-    gameinstance = Game()
-    print(len(gameinstance.deck))
-    gameinstance.draw_hand()
-    gameinstance.hand.print_hand()
-    gameinstance.hand.select_cards([i for i in range(5)])
-    gameinstance.hand.play_selected()
-    print(gameinstance.hand.scorer.cards)
-    
-    print(len(gameinstance.deck))
-
-
-    myscorer = HandScorer()
-    myscorer.add([Card(suit=Suit.CLUB, rank=rank) for rank in RankOrder if rank.value in range(RankOrder.TWO.value, RankOrder.FIVE.value+1)])
-    myscorer.add(Card(suit=Suit.HEART, rank=RankOrder.ACE))
-    myscorer.get_hand_info()
-    print(myscorer.cards)
-    print(myscorer.is_flush())
-    print(myscorer.is_straight())
-    print(myscorer.get_hand_type())
+    G = Game()
+    G.draw_hand()
+    G.hand.print_hand()
+    G.hand.sort_ranks()
+    G.hand.select_cards(list(range(5)))
+    G.hand.print_selected()
+    G.play_hand()
+    print(G.score)
 
 
 
